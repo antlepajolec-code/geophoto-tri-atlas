@@ -105,6 +105,12 @@ intégré à QGIS.
 
 ## Historique
 
+### 1.2.2
+- **Packaging** : montée de version uniquement (la 1.2.1 était déjà
+  enregistrée sur le dépôt QGIS suite à une tentative d'envoi
+  précédente jamais approuvée, ce qui bloquait le renvoi sous le même
+  numéro de version). Aucun changement de code par rapport à la 1.2.1.
+
 ### 1.2.1
 - **Correctif** : les blocs `except Exception: pass` (10 occurrences dans
   `atlas.py` et `core.py`), détectés comme problème CRITIQUE (CWE-703)
