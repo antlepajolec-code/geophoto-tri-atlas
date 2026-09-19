@@ -19,11 +19,14 @@ import re
 import shutil
 
 from qgis.PyQt.QtCore import QVariant, QDateTime
+from qgis.PyQt.QtGui import QColor
 from qgis.core import (
     QgsVectorLayer, QgsField, QgsFeature, QgsGeometry, QgsPointXY,
     QgsProject, QgsCoordinateTransform, QgsSpatialIndex,
     QgsVectorFileWriter, QgsDistanceArea, QgsUnitTypes,
-    QgsMessageLog, Qgis,
+    QgsMessageLog, Qgis, QgsRuleBasedRenderer, QgsMarkerSymbol,
+    QgsSimpleMarkerSymbolLayer, QgsSimpleMarkerSymbolLayerBase,
+    QgsSymbolLayer, QgsProperty,
 )
 
 try:
@@ -387,6 +390,102 @@ def create_photo_layer(name='Photos géolocalisées'):
         [QgsField(n, t) for n, t in FIELD_DEFS])
     layer.updateFields()
     return layer
+
+
+def apply_direction_symbology(layer):
+    """
+    Applique à la couche de points un style « point + flèche » : un
+    point plein pour chaque photo, complété d'une flèche indiquant
+    l'azimut de prise de vue quand le champ 'direction' (extrait de la
+    balise EXIF GPSImgDirection : degrés depuis le nord, sens horaire)
+    est renseigné ; les photos sans direction connue (la plupart des
+    appareils n'ont pas de boussole intégrée) n'affichent qu'un point
+    simple. Utile pour recontextualiser une photo d'habitat ou de
+    contact faune par rapport au paysage environnant, directement sur
+    la carte et dans l'Atlas (qui hérite de ce style via
+    atlas.py/_numbered_label_style_override, capturé sur le style de
+    couche à jour).
+
+    Modifie le style de la couche EN PLACE : contrairement à
+    l'étiquetage numéroté (appliqué uniquement en surcouche de la mise
+    en page Atlas, sans toucher au projet), c'est ici le style par
+    défaut de la couche nouvellement créée, que l'utilisateur peut
+    ensuite personnaliser librement (Propriétés de la couche ▸
+    Symbologie), comme n'importe quel style QGIS.
+
+    Purement cosmétique : en cas d'échec (API de symbologie absente ou
+    différente selon la version de QGIS), la couche garde son style par
+    défaut et l'opération est simplement journalisée, sans jamais
+    interrompre l'import ou la corrélation GPX.
+    """
+    if layer.fields().indexOf('direction') == -1:
+        return
+    try:
+        orange = QColor(255, 140, 0)
+        outline = QColor(102, 51, 0)
+
+        dot = QgsSimpleMarkerSymbolLayer()
+        dot.setShape(QgsSimpleMarkerSymbolLayerBase.Shape.Circle)
+        dot.setSize(2.4)
+        dot.setColor(orange)
+        dot.setStrokeColor(outline)
+        dot.setStrokeWidth(0.3)
+
+        arrow = QgsSimpleMarkerSymbolLayer()
+        arrow.setShape(QgsSimpleMarkerSymbolLayerBase.Shape.Arrow)
+        arrow.setSize(7.0)
+        arrow.setColor(orange)
+        arrow.setStrokeColor(outline)
+        arrow.setStrokeWidth(0.3)
+        # La forme « Arrow » de QGIS pointe vers le haut (nord) à
+        # angle=0 ; la rotation (sens horaire) accepte directement une
+        # valeur d'azimut, ce qui correspond exactement à la convention
+        # EXIF GPSImgDirection (degrés depuis le nord, sens horaire) :
+        # aucune conversion nécessaire. À vérifier visuellement une fois
+        # importé dans QGIS — l'orientation par défaut de la forme peut
+        # varier légèrement d'une version à l'autre ; au besoin, un
+        # décalage constant se règle simplement dans les propriétés de
+        # symbologie de la couche.
+        arrow.setDataDefinedProperty(
+            QgsSymbolLayer.Property.PropertyAngle,
+            QgsProperty.fromField('direction'))
+
+        with_dir_symbol = QgsMarkerSymbol()
+        with_dir_symbol.deleteSymbolLayer(0)
+        with_dir_symbol.appendSymbolLayer(dot.clone())
+        with_dir_symbol.appendSymbolLayer(arrow)
+
+        no_dir_symbol = QgsMarkerSymbol()
+        no_dir_symbol.deleteSymbolLayer(0)
+        no_dir_symbol.appendSymbolLayer(dot.clone())
+
+        # Rendu par règles à deux branches (cf. cookbook PyQGIS) : la
+        # règle initiale du renderer est réutilisée pour la branche
+        # « avec direction », une seconde (règle « sinon ») est ajoutée
+        # pour les photos sans direction connue.
+        renderer = QgsRuleBasedRenderer(with_dir_symbol)
+        root_rule = renderer.rootRule()
+
+        rule_with_dir = root_rule.children()[0]
+        rule_with_dir.setLabel('Avec direction de prise de vue')
+        rule_with_dir.setFilterExpression('"direction" IS NOT NULL')
+
+        rule_without_dir = rule_with_dir.clone()
+        rule_without_dir.setLabel('Sans direction connue')
+        rule_without_dir.setFilterExpression('')
+        rule_without_dir.setIsElse(True)
+        rule_without_dir.setSymbol(no_dir_symbol)
+        root_rule.appendChild(rule_without_dir)
+
+        layer.setRenderer(renderer)
+        layer.triggerRepaint()
+    except Exception as exc:
+        # Purement cosmetique : ne doit jamais faire echouer
+        # l'import/la correlation GPX, seulement journaliser.
+        _log_warn(f"Style 'point + direction de prise de vue' non "
+                  f"applique a la couche de points (API de symbologie "
+                  f"indisponible ou differente sur cette version de "
+                  f"QGIS) : {exc}")
 
 
 def import_photos(folder, recursive=True, layer_name='Photos géolocalisées',

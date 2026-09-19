@@ -89,6 +89,17 @@ class GeoPhotoDialog(QDialog):
         self.chk_gpkg.toggled.connect(self.gpkg_path.setEnabled)
         form.addRow('Fichier GeoPackage :', self.gpkg_path)
 
+        self.chk_direction = QCheckBox(
+            'Afficher la direction de prise de vue (flèche) sur la carte')
+        self.chk_direction.setChecked(True)
+        self.chk_direction.setToolTip(
+            'Style par défaut de la couche : un point pour chaque photo, '
+            'complété d\'une flèche orientée selon le champ « direction » '
+            '(azimut EXIF GPSImgDirection) quand il est renseigné. '
+            'Personnalisable ensuite comme tout style QGIS (Propriétés de '
+            'la couche ▸ Symbologie).')
+        form.addRow('', self.chk_direction)
+
         info = QLabel(
             'Les coordonnées GPS EXIF sont exprimées en WGS84 : la couche '
             'est donc créée en EPSG:4326 et reprojetée à la volée par QGIS '
@@ -171,6 +182,17 @@ class GeoPhotoDialog(QDialog):
         self.gpx_gpkg_path.setEnabled(False)
         self.chk_gpx_gpkg.toggled.connect(self.gpx_gpkg_path.setEnabled)
         form.addRow('Fichier GeoPackage :', self.gpx_gpkg_path)
+
+        self.chk_gpx_direction = QCheckBox(
+            'Afficher la direction de prise de vue (flèche) sur la carte')
+        self.chk_gpx_direction.setChecked(True)
+        self.chk_gpx_direction.setToolTip(
+            'Style par défaut de la couche : un point pour chaque photo, '
+            'complété d\'une flèche orientée selon le champ « direction » '
+            '(azimut EXIF GPSImgDirection) quand il est renseigné — rare '
+            'pour un appareil sans GPS, sauf boussole intégrée. '
+            'Personnalisable ensuite comme tout style QGIS.')
+        form.addRow('', self.chk_gpx_direction)
 
         info = QLabel(
             'Pour les photos prises avec un appareil SANS GPS (reflex, '
@@ -441,6 +463,9 @@ class GeoPhotoDialog(QDialog):
                 QMessageBox.critical(self, 'GeoPhoto', str(e))
                 return
 
+        if self.chk_direction.isChecked():
+            core.apply_direction_symbology(layer)
+
         QgsProject.instance().addMapLayer(layer)
         self.cbo_points.setLayer(layer)
         self.cbo_points_a.setLayer(layer)
@@ -499,6 +524,9 @@ class GeoPhotoDialog(QDialog):
             except Exception as e:
                 QMessageBox.critical(self, 'GeoPhoto', str(e))
                 return
+
+        if self.chk_gpx_direction.isChecked():
+            core.apply_direction_symbology(layer)
 
         QgsProject.instance().addMapLayer(layer)
         self.cbo_points.setLayer(layer)

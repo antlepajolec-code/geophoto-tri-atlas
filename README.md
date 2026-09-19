@@ -41,9 +41,12 @@ intégré à QGIS.
   au bon endroit quel que soit le référentiel du projet.
 - Attributs créés : `photo` (nom du fichier), `chemin`, `dossier`,
   `date_prise`, `altitude`, `direction`, plus `emprise` et `chemin_tri`
-  remplis à l'étape 2.
+  remplis à l'étape 3 (tri par emprises).
 - Option : enregistrer la couche en GeoPackage pour la rendre pérenne
   (recommandé avant de construire l'Atlas).
+- Option : style par défaut « point + flèche », affichant l'azimut de
+  prise de vue (champ `direction`) quand il est disponible — voir
+  « Direction de prise de vue » ci-dessous.
 
 ### Étape 2 — Corréler avec une trace GPX (photos sans GPS)
 - Pour les photos prises avec un appareil sans GPS (reflex, compact)
@@ -113,6 +116,25 @@ intégré à QGIS.
   cette carte de mise en page, sans modifier le style de la couche dans
   le projet.
 
+## Direction de prise de vue
+
+- Quand l'appareil photo enregistre l'azimut de prise de vue (balise
+  EXIF `GPSImgDirection`, présente sur certains smartphones et
+  appareils avec boussole intégrée), il est stocké dans le champ
+  `direction` de la couche de points (degrés depuis le nord, sens
+  horaire).
+- Par défaut, ce champ est représenté sur la carte par une flèche
+  partant du point, orientée selon cet azimut ; les photos sans
+  direction connue n'affichent qu'un point simple. Ce style s'applique
+  aussi bien à la couche issue de l'import EXIF que de la corrélation
+  GPX, et il est repris automatiquement dans la carte de la page 1 de
+  l'Atlas.
+- Pour désactiver ce style automatique, décocher « Afficher la
+  direction de prise de vue (flèche) sur la carte » avant de lancer
+  l'import ou la corrélation GPX. Une fois la couche créée, le style
+  reste un style QGIS ordinaire, modifiable dans Propriétés de la
+  couche ▸ Symbologie (couleur, taille, forme…).
+
 ## Notes et limites
 
 - L'EXIF GPS est surtout présent dans les JPEG/TIFF ; les photos sans
@@ -130,6 +152,30 @@ intégré à QGIS.
   expressions de l'Atlas en tiennent compte.
 
 ## Historique
+
+### 1.4.0
+- **Nouvelle fonctionnalité** : la couche de points (créée par l'import
+  ou par la corrélation GPX) reçoit désormais un style par défaut
+  « point + flèche » : un point plein pour chaque photo, complété
+  d'une flèche indiquant l'azimut de prise de vue (champ `direction`,
+  déjà extrait de la balise EXIF `GPSImgDirection` mais jusqu'ici non
+  exploité visuellement) quand cette information est disponible. Les
+  photos sans direction connue n'affichent qu'un point simple. Un vrai
+  repère de terrain pour recontextualiser une photo d'habitat ou de
+  contact faune par rapport au paysage environnant.
+- Ce style est hérité automatiquement par la carte de la page 1 de
+  l'Atlas (même mécanisme que l'étiquetage numéroté des points : la
+  mise en page capture le style courant de la couche), sans aucune
+  configuration supplémentaire.
+- Une nouvelle case à cocher (« Afficher la direction de prise de vue
+  (flèche) sur la carte »), cochée par défaut sur les onglets Import et
+  Corrélation GPX, permet de désactiver ce style automatique. Il reste
+  personnalisable ensuite comme n'importe quel style QGIS (Propriétés
+  de la couche ▸ Symbologie).
+- Fonctionnalité purement cosmétique et défensive : si l'API de
+  symbologie diffère sur une version de QGIS, la couche garde
+  simplement son style par défaut (avertissement journalisé), sans
+  jamais bloquer l'import ou la corrélation GPX.
 
 ### 1.3.0
 - **Nouvelle fonctionnalité** : étape « Corréler avec une trace GPX »,

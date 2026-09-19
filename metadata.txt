@@ -5,7 +5,7 @@ description=Imports geotagged photos (EXIF GPS) or geolocates GPS-less photos by
 description[fr]=Importe des photos géoréférencées (EXIF GPS) ou géolocalise des photos sans GPS par corrélation temporelle avec une trace GPX, crée les points sur la carte, trie/copie les photos dans des dossiers nommés selon les emprises polygonales, et génère une mise en page Atlas à 2 pages (carte + photos).
 about=The plugin reads GPS coordinates from photo EXIF data, or geolocates photos taken with a GPS-less camera by correlating their capture time with a GPX track from a handheld GPS tracker (interpolating position along the track, with a clock-offset correction). It creates a point layer in EPSG:4326 (WGS84, the GPS's native reference system) with the file name as an attribute, performs a spatial join with a polygon layer (footprints), then copies or moves the photos into sub-folders named after the chosen field of each footprint. It also prepares an Atlas layout: page 1 = map centred on the footprint, page 2 = associated photos + photo table.
 about[fr]=Le plugin lit les coordonnées GPS des photos (EXIF), ou géolocalise des photos prises avec un appareil sans GPS en corrélant leur date de prise de vue avec une trace GPX enregistrée par un traceur GPS de randonnée (interpolation de la position sur la trace, avec correction du décalage d'horloge). Il crée une couche de points en EPSG:4326 (WGS84, référentiel natif du GPS) avec le nom de fichier en attribut, effectue une jointure spatiale avec une couche de polygones (emprises) puis copie ou déplace les photos dans des sous-dossiers nommés d'après le champ choisi de chaque entité. Il prépare également une mise en page Atlas : page 1 = carte centrée sur l'emprise, page 2 = photos associées + table des photos.
-version=1.3.0
+version=1.4.0
 author=Antoine Le Pajolec
 email=ant.lepajolec@gmail.com
 category=Vector
@@ -17,7 +17,21 @@ experimental=False
 deprecated=False
 hasProcessingProvider=no
 icon=icon.svg
-changelog=1.3.0
+changelog=1.4.0
+    - Feature: the point layer created by import or GPX correlation now
+      gets a "point + arrow" default style: a plain point for every
+      photo, with an arrow showing the shooting direction (azimuth,
+      read from the EXIF GPSImgDirection tag, already extracted but
+      previously unused visually) whenever it is available. Photos
+      without a known direction just show a point. This style is
+      inherited by the Atlas map page 1 automatically (it captures the
+      layer's current style, same mechanism as the numbered-point
+      labelling), and can be toggled off (or customized afterwards like
+      any QGIS style) via a new checkbox on the import and GPX
+      correlation tabs. Purely cosmetic: if the symbology API differs
+      on a given QGIS version, the layer simply keeps its default style
+      and a warning is logged, without ever blocking the import.
+    1.3.0
     - Feature: new "Correlate with a GPX track" step, for photos taken
       with a GPS-less camera (DSLR, compact) while carrying a handheld
       GPS tracker (Garmin or similar) that records a timestamped GPX
