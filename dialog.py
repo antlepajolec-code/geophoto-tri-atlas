@@ -64,7 +64,7 @@ class GeoPhotoDialog(QDialog):
         form = QFormLayout(w)
 
         self.src_folder = QgsFileWidget()
-        self.src_folder.setStorageMode(QgsFileWidget.GetDirectory)
+        self.src_folder.setStorageMode(QgsFileWidget.StorageMode.GetDirectory)
         self.src_folder.setDialogTitle('Dossier contenant les photos')
         form.addRow('Dossier des photos :', self.src_folder)
 
@@ -79,7 +79,7 @@ class GeoPhotoDialog(QDialog):
             'Enregistrer en GeoPackage (sinon couche mémoire temporaire)')
         form.addRow('', self.chk_gpkg)
         self.gpkg_path = QgsFileWidget()
-        self.gpkg_path.setStorageMode(QgsFileWidget.SaveFile)
+        self.gpkg_path.setStorageMode(QgsFileWidget.StorageMode.SaveFile)
         self.gpkg_path.setFilter('GeoPackage (*.gpkg)')
         self.gpkg_path.setEnabled(False)
         self.chk_gpkg.toggled.connect(self.gpkg_path.setEnabled)
@@ -110,22 +110,25 @@ class GeoPhotoDialog(QDialog):
         form = QFormLayout(w)
 
         self.cbo_points = QgsMapLayerComboBox()
-        self.cbo_points.setFilters(QgsMapLayerProxyModel.PointLayer)
+        self.cbo_points.setFilters(
+            QgsMapLayerProxyModel.Filter.PointLayer)
         form.addRow('Couche de points (photos) :', self.cbo_points)
 
         self.cbo_polys = QgsMapLayerComboBox()
-        self.cbo_polys.setFilters(QgsMapLayerProxyModel.PolygonLayer)
+        self.cbo_polys.setFilters(
+            QgsMapLayerProxyModel.Filter.PolygonLayer)
         form.addRow('Couche d\'emprises (polygones) :', self.cbo_polys)
 
         self.cbo_field = QgsFieldComboBox()
-        self.cbo_field.setFilters(QgsFieldProxyModel.String |
-                                  QgsFieldProxyModel.Numeric)
+        self.cbo_field.setFilters(QgsFieldProxyModel.Filter.String |
+                                  QgsFieldProxyModel.Filter.Numeric)
         self.cbo_polys.layerChanged.connect(self.cbo_field.setLayer)
         self.cbo_field.setLayer(self.cbo_polys.currentLayer())
         form.addRow('Champ « nom d\'emprise » :', self.cbo_field)
 
         self.dest_folder = QgsFileWidget()
-        self.dest_folder.setStorageMode(QgsFileWidget.GetDirectory)
+        self.dest_folder.setStorageMode(
+            QgsFileWidget.StorageMode.GetDirectory)
         self.dest_folder.setDialogTitle(
             'Dossier d\'atterrissage des photos triées')
         form.addRow('Dossier de rangement :', self.dest_folder)
@@ -249,7 +252,8 @@ class GeoPhotoDialog(QDialog):
         form = QFormLayout(w)
 
         self.cbo_polys_a = QgsMapLayerComboBox()
-        self.cbo_polys_a.setFilters(QgsMapLayerProxyModel.PolygonLayer)
+        self.cbo_polys_a.setFilters(
+            QgsMapLayerProxyModel.Filter.PolygonLayer)
         form.addRow('Couche d\'emprises :', self.cbo_polys_a)
 
         self.cbo_field_a = QgsFieldComboBox()
@@ -258,7 +262,8 @@ class GeoPhotoDialog(QDialog):
         form.addRow('Champ « nom d\'emprise » :', self.cbo_field_a)
 
         self.cbo_points_a = QgsMapLayerComboBox()
-        self.cbo_points_a.setFilters(QgsMapLayerProxyModel.PointLayer)
+        self.cbo_points_a.setFilters(
+            QgsMapLayerProxyModel.Filter.PointLayer)
         form.addRow('Couche de points (photos) :', self.cbo_points_a)
 
         info = QLabel(
@@ -388,8 +393,10 @@ class GeoPhotoDialog(QDialog):
                 self, 'GeoPhoto',
                 'Mode « Déplacer » : les fichiers originaux seront '
                 'supprimés après copie. Continuer ?',
-                QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
-            if rep != QMessageBox.Yes:
+                QMessageBox.StandardButton.Yes
+                | QMessageBox.StandardButton.No,
+                QMessageBox.StandardButton.No)
+            if rep != QMessageBox.StandardButton.Yes:
                 return
 
         near_sub = None

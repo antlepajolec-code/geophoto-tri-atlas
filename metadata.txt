@@ -25,6 +25,11 @@ changelog=1.2.1
     - Cleanup: removed unused imports and fixed remaining code-style
       warnings (Flake8) found during the QGIS repository's pre-publish
       scan.
+    - Fix: 27 unqualified PyQt/QGIS enum references (e.g. QFont.Bold,
+      Qt.AscendingOrder) rewritten with their fully-qualified Qt6 form
+      (e.g. QFont.Weight.Bold, Qt.SortOrder.AscendingOrder) for Qt6 /
+      QGIS 4 compatibility, per the QGIS repository's automated Qt6
+      compatibility check.
     1.2.0
     - Fix: a GPS EXIF tag present but EMPTY (0/0 rational components,
       missing N/S/E/W reference — observed on a Samsung Galaxy A26 5G

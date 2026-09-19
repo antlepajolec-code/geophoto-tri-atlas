@@ -117,6 +117,12 @@ intégré à QGIS.
 - **Nettoyage** : suppression des imports inutilisés et correction des
   derniers avertissements de style (Flake8) relevés par le scan du
   dépôt QGIS.
+- **Correctif** : 27 énumérations PyQt/QGIS non qualifiées (ex.
+  `QFont.Bold`, `Qt.AscendingOrder`) réécrites sous leur forme
+  pleinement qualifiée Qt6 (ex. `QFont.Weight.Bold`,
+  `Qt.SortOrder.AscendingOrder`), suite au contrôle de compatibilité
+  Qt6 automatique du dépôt QGIS. Aucun changement de comportement :
+  la syntaxe qualifiée reste compatible avec Qt5/PyQt5 (QGIS actuel).
 
 ### 1.2.0
 - **Correctif** : une balise GPS EXIF présente mais VIDE (composants

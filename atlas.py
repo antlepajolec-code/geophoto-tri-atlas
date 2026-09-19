@@ -191,17 +191,18 @@ def create_atlas_layout(project, polygon_layer, name_field, point_layer,
 
     # --- Pages : 2 x A4 paysage -------------------------------------------
     pages = layout.pageCollection()
-    pages.page(0).setPageSize('A4', QgsLayoutItemPage.Landscape)
+    pages.page(0).setPageSize(
+        'A4', QgsLayoutItemPage.Orientation.Landscape)
     page2 = QgsLayoutItemPage(layout)
-    page2.setPageSize('A4', QgsLayoutItemPage.Landscape)
+    page2.setPageSize('A4', QgsLayoutItemPage.Orientation.Landscape)
     pages.addPage(page2)
 
-    mm = QgsUnitTypes.LayoutMillimeters
+    mm = QgsUnitTypes.LayoutUnit.LayoutMillimeters
 
     # ======================= PAGE 1 : CARTE =================================
     title = QgsLayoutItemLabel(layout)
     title.setText(f'Emprise : [% "{name_field}" %]')
-    title.setFont(QFont('Arial', 20, QFont.Bold))
+    title.setFont(QFont('Arial', 20, QFont.Weight.Bold))
     layout.addLayoutItem(title)
     title.attemptResize(QgsLayoutSize(277, 10, mm))
     title.attemptMove(QgsLayoutPoint(10, 5, mm), page=0)
@@ -250,7 +251,7 @@ def create_atlas_layout(project, polygon_layer, name_field, point_layer,
 
     # La carte suit l'entité courante de l'Atlas, avec 15 % de marge
     map_item.setAtlasDriven(True)
-    map_item.setAtlasScalingMode(QgsLayoutItemMap.Auto)
+    map_item.setAtlasScalingMode(QgsLayoutItemMap.AtlasScalingMode.Auto)
     map_item.setAtlasMargin(0.15)
 
     # Étiquetage numéroté des points, appliqué uniquement à cette carte
@@ -267,7 +268,7 @@ def create_atlas_layout(project, polygon_layer, name_field, point_layer,
     # ======================= PAGE 2 : PHOTOS ================================
     title2 = QgsLayoutItemLabel(layout)
     title2.setText(f'Photos — emprise : [% "{name_field}" %]')
-    title2.setFont(QFont('Arial', 16, QFont.Bold))
+    title2.setFont(QFont('Arial', 16, QFont.Weight.Bold))
     layout.addLayoutItem(title2)
     title2.attemptResize(QgsLayoutSize(277, 9, mm))
     title2.attemptMove(QgsLayoutPoint(10, 5, mm), page=1)
@@ -276,10 +277,10 @@ def create_atlas_layout(project, polygon_layer, name_field, point_layer,
     positions = [(10, 17), (98, 17), (10, 112), (98, 112)]
     for i, (x, y) in enumerate(positions):
         pic = QgsLayoutItemPicture(layout)
-        pic.setResizeMode(QgsLayoutItemPicture.Zoom)
+        pic.setResizeMode(QgsLayoutItemPicture.ResizeMode.Zoom)
         pic.setFrameEnabled(False)
         pic.dataDefinedProperties().setProperty(
-            QgsLayoutObject.PictureSource,
+            QgsLayoutObject.DataDefinedProperty.PictureSource,
             QgsProperty.fromExpression(
                 _photo_path_expr(point_layer, name_field, i)))
         layout.addLayoutItem(pic)
@@ -290,7 +291,7 @@ def create_atlas_layout(project, polygon_layer, name_field, point_layer,
         caption.setText(
             f'[% {_caption_expr(point_layer, name_field, i)} %]')
         caption.setFont(QFont('Arial', 9))
-        caption.setHAlign(Qt.AlignHCenter)
+        caption.setHAlign(Qt.AlignmentFlag.AlignHCenter)
         layout.addLayoutItem(caption)
         caption.attemptResize(QgsLayoutSize(84, 6, mm))
         caption.attemptMove(QgsLayoutPoint(x, y + 85, mm), page=1)
@@ -308,7 +309,7 @@ def create_atlas_layout(project, polygon_layer, name_field, point_layer,
         if keep:
             try:
                 keep[0].setSortByRank(1)          # tri par num_bloc
-                keep[0].setSortOrder(Qt.AscendingOrder)
+                keep[0].setSortOrder(Qt.SortOrder.AscendingOrder)
             except AttributeError:
                 pass
             table.setColumns(keep)
@@ -322,14 +323,15 @@ def create_atlas_layout(project, polygon_layer, name_field, point_layer,
         from qgis.core import QgsLayoutTableColumn
         sort_col = QgsLayoutTableColumn()
         sort_col.setAttribute('num_bloc')
-        sort_col.setSortOrder(Qt.AscendingOrder)
+        sort_col.setSortOrder(Qt.SortOrder.AscendingOrder)
         table.setSortColumns([sort_col])
     except Exception as exc:
         _log_warn(f"Tri de la table de photos par numero de bloc "
                   f"impossible (API indisponible sur cette version de "
                   f"QGIS) : {exc}")
     try:
-        table.setEmptyTableBehavior(QgsLayoutItemAttributeTable.ShowMessage)
+        table.setEmptyTableBehavior(
+            QgsLayoutItemAttributeTable.EmptyTableMode.ShowMessage)
         table.setEmptyTableMessage('Aucune photo dans cette emprise.')
     except Exception as exc:
         _log_warn(f"Message de table vide non configure : {exc}")

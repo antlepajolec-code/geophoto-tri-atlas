@@ -428,7 +428,7 @@ def save_as_gpkg(layer, gpkg_path):
     else:
         res = QgsVectorFileWriter.writeAsVectorFormatV2(
             layer, gpkg_path, ctx, options)
-    if res[0] != QgsVectorFileWriter.NoError:
+    if res[0] != QgsVectorFileWriter.WriterError.NoError:
         raise RuntimeError(f"Échec d'écriture GeoPackage : {res[1]}")
     uri = f"{gpkg_path}|layername={layer.name()}"
     out = QgsVectorLayer(uri, layer.name(), 'ogr')
@@ -486,7 +486,7 @@ def _nearest_polygon(index, geoms, pt_geom, da):
         near = geoms[best_fid].nearestPoint(pt_geom).asPoint()
         meters = da.measureLine(QgsPointXY(pt), QgsPointXY(near))
         meters = da.convertLengthMeasurement(
-            meters, QgsUnitTypes.DistanceMeters)
+            meters, QgsUnitTypes.DistanceUnit.DistanceMeters)
     except Exception as exc:
         # Mesure ellipsoidale impossible : on garde la distance
         # cartesienne calculee plus haut (valeur approximative).
