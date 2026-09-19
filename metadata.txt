@@ -1,0 +1,46 @@
+[general]
+name=GeoPhoto Tri & Atlas
+qgisMinimumVersion=3.16
+description=Imports geotagged photos (EXIF GPS), creates the points on the map, sorts/copies the photos into folders named after polygon footprints, and generates a 2-page Atlas layout (map + photos).
+description[fr]=Importe des photos géoréférencées (EXIF GPS), crée les points sur la carte, trie/copie les photos dans des dossiers nommés selon les emprises polygonales, et génère une mise en page Atlas à 2 pages (carte + photos).
+about=The plugin reads GPS coordinates from photo EXIF data, creates a point layer in EPSG:4326 (WGS84, the GPS's native reference system) with the file name as an attribute, performs a spatial join with a polygon layer (footprints), then copies or moves the photos into sub-folders named after the chosen field of each footprint. It also prepares an Atlas layout: page 1 = map centred on the footprint, page 2 = associated photos + photo table.
+about[fr]=Le plugin lit les coordonnées GPS des photos (EXIF), crée une couche de points en EPSG:4326 (WGS84, référentiel natif du GPS) avec le nom de fichier en attribut, effectue une jointure spatiale avec une couche de polygones (emprises) puis copie ou déplace les photos dans des sous-dossiers nommés d'après le champ choisi de chaque entité. Il prépare également une mise en page Atlas : page 1 = carte centrée sur l'emprise, page 2 = photos associées + table des photos.
+version=1.2.0
+author=Antoine Le Pajolec
+email=ant.lepajolec@gmail.com
+category=Vector
+tags=photo,exif,gps,geotag,atlas,tri,import,ecology,field survey
+homepage=https://github.com/antlepajolec-code/geophoto-tri-atlas
+tracker=https://github.com/antlepajolec-code/geophoto-tri-atlas/issues
+repository=https://github.com/antlepajolec-code/geophoto-tri-atlas
+experimental=False
+deprecated=False
+hasProcessingProvider=no
+icon=icon.svg
+changelog=1.2.0
+    - Fix: a GPS EXIF tag present but EMPTY (0/0 rational components,
+      missing N/S/E/W reference — observed on a Samsung Galaxy A26 5G
+      when location could not be acquired at capture time) was
+      converted into an exact (0, 0) point ("Null Island", far from
+      any real footprint) instead of being treated as no GPS. All
+      three EXIF readers (QgsExifTools, internal parser, Pillow) now
+      validate the reference and reject NaN/Infinite/exact-(0,0)
+      coordinates; the "Diagnose a photo file" button now explains
+      this case.
+    - Fix: the Pillow fallback crashed (uncaught ZeroDivisionError) on
+      this same kind of empty GPS tag.
+    - A file whose EXIF reading fails unexpectedly no longer aborts
+      the import of the rest of the folder.
+1.1.0
+    - Fix: the Atlas-to-point-layer comparison compared a sanitized
+      footprint name (sanitize_name) to the raw field value, leaving
+      Atlas page 2 (photos/table) empty for any footprint whose name
+      contained a character altered by sanitization. The 'emprise'
+      attribute now stores the raw value (the sanitized folder name is
+      still used only for sorting on disk).
+    - The Atlas map now imports the current canvas view (displayed
+      basemap + extent) and locks the layers used, instead of
+      dynamically following the project's layer visibility.
+    - Numbered point labelling is now applied only within the Atlas
+      layout (style override), without modifying the layer's style in
+      the project.
