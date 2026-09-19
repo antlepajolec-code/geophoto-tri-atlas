@@ -21,6 +21,7 @@ from qgis.gui import QgsMapLayerComboBox, QgsFieldComboBox, QgsFileWidget
 
 from . import core
 from . import atlas as atlas_mod
+from . import gpx_geotag
 
 
 class GeoPhotoDialog(QDialog):
@@ -38,9 +39,12 @@ class GeoPhotoDialog(QDialog):
         self.tabs = QTabWidget()
         main.addWidget(self.tabs)
 
-        self.tabs.addTab(self._tab_import(), '1. Importer les photos')
-        self.tabs.addTab(self._tab_sort(), '2. Trier par emprises')
-        self.tabs.addTab(self._tab_atlas(), '3. Mise en page Atlas')
+        self.tabs.addTab(self._tab_import(),
+                         '1. Importer les photos (EXIF GPS)')
+        self.tabs.addTab(self._tab_gpx(),
+                         '2. Corréler avec une trace GPX')
+        self.tabs.addTab(self._tab_sort(), '3. Trier par emprises')
+        self.tabs.addTab(self._tab_atlas(), '4. Mise en page Atlas')
 
         self.progress = QProgressBar()
         self.progress.setVisible(False)
@@ -103,6 +107,87 @@ class GeoPhotoDialog(QDialog):
                                '(vérifier la présence du GPS)')
         btn_diag.clicked.connect(self.run_diagnose)
         form.addRow(btn_diag)
+        return w
+
+    def _tab_gpx(self):
+        w = QWidget()
+        form = QFormLayout(w)
+
+        self.gpx_src_folder = QgsFileWidget()
+        self.gpx_src_folder.setStorageMode(
+            QgsFileWidget.StorageMode.GetDirectory)
+        self.gpx_src_folder.setDialogTitle(
+            'Dossier contenant les photos (appareil sans GPS)')
+        form.addRow('Dossier des photos :', self.gpx_src_folder)
+
+        self.chk_gpx_recursive = QCheckBox('Inclure les sous-dossiers')
+        self.chk_gpx_recursive.setChecked(True)
+        form.addRow('', self.chk_gpx_recursive)
+
+        self.gpx_file = QgsFileWidget()
+        self.gpx_file.setStorageMode(QgsFileWidget.StorageMode.GetFile)
+        self.gpx_file.setDialogTitle('Fichier de trace GPX')
+        self.gpx_file.setFilter('GPX (*.gpx)')
+        form.addRow('Trace GPX :', self.gpx_file)
+
+        self.spin_offset = QDoubleSpinBox()
+        self.spin_offset.setRange(-200000.0, 200000.0)
+        self.spin_offset.setDecimals(0)
+        self.spin_offset.setSuffix(' s')
+        self.spin_offset.setValue(0.0)
+        self.spin_offset.setToolTip(
+            'Décalage ajouté à l\'heure de l\'appareil photo pour la '
+            'ramener à l\'heure GPS/UTC de la trace (fuseau horaire + '
+            'dérive de l\'horloge de l\'appareil). Positif si l\'heure '
+            'de l\'appareil retarde sur l\'heure GPS, négatif si elle '
+            'avance. Pour le déterminer : photographier l\'écran du '
+            'traceur GPS (qui affiche l\'heure GPS) en début de sortie, '
+            'puis comparer avec l\'heure de prise de vue EXIF de cette '
+            'photo (méthode GeoSetter/digiKam).')
+        form.addRow('Décalage d\'horloge :', self.spin_offset)
+
+        self.spin_maxgap = QDoubleSpinBox()
+        self.spin_maxgap.setRange(0.0, 86400.0)
+        self.spin_maxgap.setDecimals(0)
+        self.spin_maxgap.setSuffix(' s')
+        self.spin_maxgap.setValue(120.0)
+        self.spin_maxgap.setToolTip(
+            'Écart temporel maximal toléré entre les deux points de la '
+            'trace GPX qui encadrent l\'instant de la photo. Au-delà '
+            '(ex. traceur éteint ou signal perdu un moment), '
+            'l\'interpolation est jugée trop imprécise et la photo '
+            'n\'est pas géolocalisée. 0 = aucune limite.')
+        form.addRow('Écart max. toléré entre points :', self.spin_maxgap)
+
+        self.gpx_layer_name = QLineEdit('Photos géolocalisées (GPX)')
+        form.addRow('Nom de la couche :', self.gpx_layer_name)
+
+        self.chk_gpx_gpkg = QCheckBox(
+            'Enregistrer en GeoPackage (sinon couche mémoire temporaire)')
+        form.addRow('', self.chk_gpx_gpkg)
+        self.gpx_gpkg_path = QgsFileWidget()
+        self.gpx_gpkg_path.setStorageMode(QgsFileWidget.StorageMode.SaveFile)
+        self.gpx_gpkg_path.setFilter('GeoPackage (*.gpkg)')
+        self.gpx_gpkg_path.setEnabled(False)
+        self.chk_gpx_gpkg.toggled.connect(self.gpx_gpkg_path.setEnabled)
+        form.addRow('Fichier GeoPackage :', self.gpx_gpkg_path)
+
+        info = QLabel(
+            'Pour les photos prises avec un appareil SANS GPS (reflex, '
+            'compact) pendant qu\'un traceur GPS de randonnée (Garmin, '
+            'etc.) enregistre une trace GPX horodatée. Chaque photo est '
+            'géolocalisée en interpolant la position sur la trace à '
+            'l\'instant de sa date de prise de vue EXIF (corrigée du '
+            'décalage d\'horloge ci-dessus). La couche obtenue a le '
+            'même format que celle de l\'étape 1 et peut être utilisée '
+            'directement pour le tri par emprises (étape 3) et l\'Atlas '
+            '(étape 4).')
+        info.setWordWrap(True)
+        form.addRow(info)
+
+        btn = QPushButton('Géolocaliser les photos par corrélation GPX')
+        btn.clicked.connect(self.run_gpx)
+        form.addRow(btn)
         return w
 
     def _tab_sort(self):
@@ -343,6 +428,65 @@ class GeoPhotoDialog(QDialog):
 
         if self.chk_gpkg.isChecked():
             gpkg = self.gpkg_path.filePath()
+            if not gpkg:
+                QMessageBox.warning(self, 'GeoPhoto',
+                                    'Veuillez indiquer le fichier GeoPackage.')
+                return
+            if not gpkg.lower().endswith('.gpkg'):
+                gpkg += '.gpkg'
+            try:
+                layer = core.save_as_gpkg(layer, gpkg)
+                self.log(f'Couche enregistrée : {gpkg}')
+            except Exception as e:
+                QMessageBox.critical(self, 'GeoPhoto', str(e))
+                return
+
+        QgsProject.instance().addMapLayer(layer)
+        self.cbo_points.setLayer(layer)
+        self.cbo_points_a.setLayer(layer)
+        self.log(f"Couche « {layer.name()} » ajoutée au projet "
+                 f"({stats['ok']} point(s), EPSG:4326).")
+
+    def run_gpx(self):
+        folder = self.gpx_src_folder.filePath()
+        gpx_path = self.gpx_file.filePath()
+        if not folder or not os.path.isdir(folder):
+            QMessageBox.warning(
+                self, 'GeoPhoto',
+                'Veuillez choisir un dossier de photos valide.')
+            return
+        if not gpx_path or not os.path.isfile(gpx_path):
+            QMessageBox.warning(
+                self, 'GeoPhoto',
+                'Veuillez choisir un fichier de trace GPX valide.')
+            return
+        try:
+            layer, stats = gpx_geotag.geotag_photos_from_gpx(
+                folder, gpx_path,
+                time_offset_seconds=self.spin_offset.value(),
+                max_gap_seconds=self.spin_maxgap.value(),
+                recursive=self.chk_gpx_recursive.isChecked(),
+                layer_name=(self.gpx_layer_name.text().strip()
+                            or 'Photos géolocalisées (GPX)'),
+                progress_cb=self._progress,
+                log_cb=self.log)
+        except Exception as e:
+            self._progress_done()
+            QMessageBox.critical(self, 'GeoPhoto', str(e))
+            return
+        self._progress_done()
+
+        if stats['ok'] == 0:
+            QMessageBox.information(
+                self, 'GeoPhoto',
+                'Aucune photo n\'a pu être géolocalisée par corrélation '
+                'avec cette trace GPX (voir le journal : date EXIF '
+                'absente, ou instant hors de la plage temporelle de la '
+                'trace — vérifiez le décalage d\'horloge).')
+            return
+
+        if self.chk_gpx_gpkg.isChecked():
+            gpkg = self.gpx_gpkg_path.filePath()
             if not gpkg:
                 QMessageBox.warning(self, 'GeoPhoto',
                                     'Veuillez indiquer le fichier GeoPackage.')

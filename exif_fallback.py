@@ -242,6 +242,55 @@ def read_gps_exif(path):
         return None
 
 
+def read_datetime_exif(path):
+    """
+    Lecture de secours (pur Python) de la date de prise de vue EXIF
+    (DateTimeOriginal, repli sur DateTime d'IFD0), INDÉPENDANTE de la
+    présence d'une balise GPS — contrairement à read_gps_exif(), qui
+    exige une balise GPS valide. Utilisée pour la corrélation avec une
+    trace GPX : l'appareil photo n'a le plus souvent aucun GPS (c'est
+    tout l'intérêt de cette fonctionnalité), mais écrit presque
+    toujours la date de prise de vue. Retourne 'AAAA-MM-JJ HH:MM:SS'
+    (ou une chaîne plus courte si l'heure est absente) ou None.
+    """
+    try:
+        tiff = _find_exif_tiff(path)
+    except (OSError, struct.error):
+        return None
+    if not tiff or len(tiff) < 8:
+        return None
+    order = tiff[:2]
+    endian = '<' if order == b'II' else '>' if order == b'MM' else None
+    if endian is None:
+        return None
+    try:
+        ifd0_off = struct.unpack(endian + 'L', tiff[4:8])[0]
+        ifd0 = _read_ifd(tiff, endian, ifd0_off)
+
+        exif_ifd = {}
+        if 0x8769 in ifd0:                          # pointeur Exif IFD
+            off = _values(tiff, endian, ifd0[0x8769])
+            if off and off[0] is not None:
+                exif_ifd = _read_ifd(tiff, endian, off[0])
+
+        def _clean_date(vals):
+            if not vals or not vals[0]:
+                return None
+            d = str(vals[0])
+            return d[:10].replace(':', '-') + d[10:] if len(d) >= 10 else d
+
+        for tag_holder, tag in ((exif_ifd, 0x9003),      # DateTimeOriginal
+                                (exif_ifd, 0x9004),      # DateTimeDigitized
+                                (ifd0, 0x0132)):         # DateTime (IFD0)
+            if tag in tag_holder:
+                date = _clean_date(_values(tiff, endian, tag_holder[tag]))
+                if date:
+                    return date
+        return None
+    except (struct.error, IndexError, KeyError, ValueError, TypeError):
+        return None
+
+
 def describe_raw_gps(path):
     """
     Diagnostic bas niveau de la balise GPS EXIF brute d'un fichier,

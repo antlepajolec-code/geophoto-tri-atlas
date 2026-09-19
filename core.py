@@ -32,7 +32,9 @@ try:
 except ImportError:          # très vieilles versions de QGIS
     HAS_EXIF = False
 
-from .exif_fallback import read_gps_exif, describe_raw_gps
+from .exif_fallback import (
+    read_gps_exif, describe_raw_gps, read_datetime_exif,
+)
 
 _LOG_TAG = 'GeoPhoto Tri & Atlas'
 
@@ -232,6 +234,42 @@ def _read_geotag_pil(path):
                   f"photo : {exc}")
 
     return {'x': lon, 'y': lat, 'z': alt, 'date': date, 'direction': None}
+
+
+def _read_datetime(path):
+    """
+    Date de prise de vue EXIF, INDÉPENDANTE de la présence d'une balise
+    GPS (contrairement à read_geotag()/_read_geotag_qgis(), qui exigent
+    un GPS valide). Utilisée par la corrélation GPX (gpx_geotag.py) :
+    l'appareil photo concerné n'a le plus souvent aucun GPS. Chaîne
+    'AAAA-MM-JJ HH:MM:SS' ou None.
+    """
+    date = _read_tag(path, 'Exif.Photo.DateTimeOriginal')
+    if date:
+        return date
+    date = read_datetime_exif(path)
+    if date:
+        return date
+    try:
+        from PIL import Image
+        img = Image.open(path)
+        exif = img.getexif()
+        ifd = exif.get_ifd(0x8769)
+        raw = ifd.get(36867) or ifd.get(36868)   # DateTimeOriginal/Digitized
+        if not raw:
+            raw = exif.get(306)                  # DateTime (IFD0)
+        if raw:
+            raw = str(raw)
+            return raw.replace(':', '-', 2) if len(raw) >= 10 else raw
+    except ImportError:
+        pass
+    except Exception as exc:
+        # Date de prise de vue illisible via Pillow : non bloquant, la
+        # photo sera simplement comptée comme "sans date exploitable"
+        # par l'appelant.
+        _log_warn(f"Date de prise de vue (EXIF, sans GPS) illisible pour "
+                  f"une photo : {exc}")
+    return None
 
 
 def read_geotag(path):

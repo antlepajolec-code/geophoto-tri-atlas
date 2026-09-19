@@ -3,15 +3,20 @@
 Dépôt : https://github.com/antlepajolec-code/geophoto-tri-atlas
 Auteur : Antoine Le Pajolec (ant.lepajolec@gmail.com)
 
-Plugin QGIS (3.16+) qui enchaîne trois étapes :
+Plugin QGIS (3.16+) qui enchaîne quatre étapes :
 
 1. **Importer** : lecture des coordonnées GPS EXIF des photos et création
    d'une couche de points sur la carte, avec le nom du fichier en attribut
    (visible dans la table attributaire, qui sert de table des matières).
-2. **Trier** : jointure spatiale entre les points-photos et une couche de
+2. **Corréler avec une trace GPX** : pour les photos prises avec un
+   appareil sans GPS (reflex, compact), géolocalisation a posteriori par
+   corrélation temporelle avec une trace GPX enregistrée par un traceur
+   GPS de randonnée (Garmin, etc.), avec correction du décalage
+   d'horloge entre l'appareil photo et le GPS.
+3. **Trier** : jointure spatiale entre les points-photos et une couche de
    polygones (emprises). Les photos sont copiées ou déplacées dans des
    sous-dossiers nommés d'après l'entité polygonale qui les contient.
-3. **Atlas** : génération d'une mise en page à 2 pages pilotée par l'Atlas
+4. **Atlas** : génération d'une mise en page à 2 pages pilotée par l'Atlas
    (page 1 : carte de l'emprise ; page 2 : photos de l'emprise + table).
 
 ## Installation
@@ -40,7 +45,28 @@ intégré à QGIS.
 - Option : enregistrer la couche en GeoPackage pour la rendre pérenne
   (recommandé avant de construire l'Atlas).
 
-### Étape 2 — Trier par emprises
+### Étape 2 — Corréler avec une trace GPX (photos sans GPS)
+- Pour les photos prises avec un appareil sans GPS (reflex, compact)
+  pendant qu'un traceur GPS de randonnée (Garmin, etc.) enregistre une
+  trace GPX horodatée.
+- Choisir le dossier des photos (sans GPS), le fichier de trace GPX, et
+  régler le **décalage d'horloge** : nombre de secondes ajouté à l'heure
+  de l'appareil photo pour la ramener à l'heure GPS/UTC de la trace
+  (fuseau horaire + dérive de l'horloge). Pour le déterminer :
+  photographier l'écran du traceur GPS (qui affiche l'heure GPS) en
+  début de sortie, puis comparer avec l'heure EXIF de cette photo
+  (méthode GeoSetter/digiKam).
+- Chaque photo est géolocalisée en interpolant linéairement la position
+  (et l'altitude si disponible) entre les deux points de la trace qui
+  encadrent l'instant de la prise de vue corrigée. Un **écart maximal
+  toléré** entre ces deux points (en secondes) permet d'exclure les
+  photos prises pendant une coupure du traceur (signal perdu, appareil
+  éteint) plutôt que de leur affecter une position peu fiable.
+- La couche obtenue a le même format que celle de l'étape 1 (mêmes
+  attributs, EPSG:4326) et alimente directement le tri (étape 3) et
+  l'Atlas (étape 4).
+
+### Étape 3 — Trier par emprises
 - Choisir la couche de points, la couche de polygones (emprises), le champ
   servant à nommer les dossiers, et le **dossier d'atterrissage**.
 - Deux modes :
@@ -66,7 +92,7 @@ intégré à QGIS.
   points sont mis à jour. Les tests point-dans-polygone utilisent une
   transformation de coordonnées explicite entre les SCR des deux couches.
 
-### Étape 3 — Mise en page Atlas
+### Étape 4 — Mise en page Atlas
 - Crée une mise en page A4 paysage à **2 pages par emprise** :
   - page 1 : titre + carte centrée sur l'entité courante (marge 15 %) ;
   - page 2 : jusqu'à 4 photos de l'emprise (sources définies par
@@ -104,6 +130,27 @@ intégré à QGIS.
   expressions de l'Atlas en tiennent compte.
 
 ## Historique
+
+### 1.3.0
+- **Nouvelle fonctionnalité** : étape « Corréler avec une trace GPX »,
+  pour les photos prises avec un appareil sans GPS (reflex, compact)
+  pendant qu'un traceur GPS de randonnée (Garmin, etc.) enregistre une
+  trace GPX horodatée. La date de prise de vue EXIF de chaque photo
+  (lue indépendamment de toute balise GPS) est corrélée avec la trace :
+  la position est interpolée linéairement entre les deux points GPX qui
+  encadrent cet instant, corrigé d'un **décalage d'horloge** réglable
+  (fuseau horaire + dérive de l'horloge de l'appareil par rapport au
+  GPS/UTC), à la manière de GeoSetter/digiKam. Un écart maximal toléré
+  entre les deux points encadrants permet d'exclure les photos prises
+  pendant une coupure du traceur plutôt que de leur affecter une
+  position peu fiable. La couche produite a le même format que celle de
+  l'étape d'import EXIF et s'utilise directement avec le tri par
+  emprises et l'Atlas.
+- Analyse du fichier GPX sans dépendance externe (bibliothèque standard
+  `xml.etree.ElementTree`), avec un contrôle explicite qui refuse toute
+  déclaration DOCTYPE/ENTITY avant l'analyse (protection contre les
+  attaques XXE), le plugin n'ayant pas de dépendance vers une
+  bibliothèque de durcissement XML telle que `defusedxml`.
 
 ### 1.2.2
 - **Packaging** : montée de version uniquement (la 1.2.1 était déjà

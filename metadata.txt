@@ -1,15 +1,15 @@
 [general]
 name=GeoPhoto Tri & Atlas
 qgisMinimumVersion=3.16
-description=Imports geotagged photos (EXIF GPS), creates the points on the map, sorts/copies the photos into folders named after polygon footprints, and generates a 2-page Atlas layout (map + photos).
-description[fr]=Importe des photos géoréférencées (EXIF GPS), crée les points sur la carte, trie/copie les photos dans des dossiers nommés selon les emprises polygonales, et génère une mise en page Atlas à 2 pages (carte + photos).
-about=The plugin reads GPS coordinates from photo EXIF data, creates a point layer in EPSG:4326 (WGS84, the GPS's native reference system) with the file name as an attribute, performs a spatial join with a polygon layer (footprints), then copies or moves the photos into sub-folders named after the chosen field of each footprint. It also prepares an Atlas layout: page 1 = map centred on the footprint, page 2 = associated photos + photo table.
-about[fr]=Le plugin lit les coordonnées GPS des photos (EXIF), crée une couche de points en EPSG:4326 (WGS84, référentiel natif du GPS) avec le nom de fichier en attribut, effectue une jointure spatiale avec une couche de polygones (emprises) puis copie ou déplace les photos dans des sous-dossiers nommés d'après le champ choisi de chaque entité. Il prépare également une mise en page Atlas : page 1 = carte centrée sur l'emprise, page 2 = photos associées + table des photos.
-version=1.2.2
+description=Imports geotagged photos (EXIF GPS) or geolocates GPS-less photos by time correlation with a GPX track, creates the points on the map, sorts/copies the photos into folders named after polygon footprints, and generates a 2-page Atlas layout (map + photos).
+description[fr]=Importe des photos géoréférencées (EXIF GPS) ou géolocalise des photos sans GPS par corrélation temporelle avec une trace GPX, crée les points sur la carte, trie/copie les photos dans des dossiers nommés selon les emprises polygonales, et génère une mise en page Atlas à 2 pages (carte + photos).
+about=The plugin reads GPS coordinates from photo EXIF data, or geolocates photos taken with a GPS-less camera by correlating their capture time with a GPX track from a handheld GPS tracker (interpolating position along the track, with a clock-offset correction). It creates a point layer in EPSG:4326 (WGS84, the GPS's native reference system) with the file name as an attribute, performs a spatial join with a polygon layer (footprints), then copies or moves the photos into sub-folders named after the chosen field of each footprint. It also prepares an Atlas layout: page 1 = map centred on the footprint, page 2 = associated photos + photo table.
+about[fr]=Le plugin lit les coordonnées GPS des photos (EXIF), ou géolocalise des photos prises avec un appareil sans GPS en corrélant leur date de prise de vue avec une trace GPX enregistrée par un traceur GPS de randonnée (interpolation de la position sur la trace, avec correction du décalage d'horloge). Il crée une couche de points en EPSG:4326 (WGS84, référentiel natif du GPS) avec le nom de fichier en attribut, effectue une jointure spatiale avec une couche de polygones (emprises) puis copie ou déplace les photos dans des sous-dossiers nommés d'après le champ choisi de chaque entité. Il prépare également une mise en page Atlas : page 1 = carte centrée sur l'emprise, page 2 = photos associées + table des photos.
+version=1.3.0
 author=Antoine Le Pajolec
 email=ant.lepajolec@gmail.com
 category=Vector
-tags=photo,exif,gps,geotag,atlas,tri,import,ecology,field survey
+tags=photo,exif,gps,gpx,geotag,atlas,tri,import,ecology,field survey
 homepage=https://github.com/antlepajolec-code/geophoto-tri-atlas
 tracker=https://github.com/antlepajolec-code/geophoto-tri-atlas/issues
 repository=https://github.com/antlepajolec-code/geophoto-tri-atlas
@@ -17,7 +17,25 @@ experimental=False
 deprecated=False
 hasProcessingProvider=no
 icon=icon.svg
-changelog=1.2.2
+changelog=1.3.0
+    - Feature: new "Correlate with a GPX track" step, for photos taken
+      with a GPS-less camera (DSLR, compact) while carrying a handheld
+      GPS tracker (Garmin or similar) that records a timestamped GPX
+      track. Each photo's EXIF capture time (read independently of any
+      GPS tag) is matched against the track, its position is linearly
+      interpolated between the two surrounding track points, and a
+      user-configurable clock-offset (seconds) corrects for the usual
+      mismatch between the camera's clock and GPS/UTC time (timezone +
+      drift), the same approach as GeoSetter/digiKam. A maximum allowed
+      gap between surrounding track points discards interpolations that
+      would be unreliable (tracker off or signal lost for a while). The
+      resulting point layer uses the same schema as step 1, so it works
+      directly with sorting and the Atlas. GPX parsing uses only the
+      Python standard library (xml.etree.ElementTree), with an explicit
+      pre-check rejecting DOCTYPE/ENTITY declarations (XXE protection)
+      before parsing, since the plugin has no external dependency to
+      call a hardening library such as defusedxml.
+    1.2.2
     - Packaging: version bump only (1.2.1 was already registered on the
       QGIS repository from a prior upload attempt that never completed
       approval, which blocked re-uploading under the same version
