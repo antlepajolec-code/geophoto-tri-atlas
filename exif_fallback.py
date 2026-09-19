@@ -190,10 +190,12 @@ def read_gps_exif(path):
             return None
 
         lat_ref = _clean_ref(
-            _values(tiff, endian, gps_ifd[0x0001]) if 0x0001 in gps_ifd else None,
+            (_values(tiff, endian, gps_ifd[0x0001])
+             if 0x0001 in gps_ifd else None),
             'N')
         lon_ref = _clean_ref(
-            _values(tiff, endian, gps_ifd[0x0003]) if 0x0003 in gps_ifd else None,
+            (_values(tiff, endian, gps_ifd[0x0003])
+             if 0x0003 in gps_ifd else None),
             'E')
         if lat_ref not in ('N', 'S') or lon_ref not in ('E', 'W'):
             # Référence absente/illisible : balise GPS non exploitable
@@ -273,17 +275,21 @@ def describe_raw_gps(path):
             return 'balise GPS EXIF incomplète (latitude/longitude absentes).'
 
         lat_ref = _clean_ref(
-            _values(tiff, endian, gps_ifd[0x0001]) if 0x0001 in gps_ifd else None,
+            (_values(tiff, endian, gps_ifd[0x0001])
+             if 0x0001 in gps_ifd else None),
             'N')
         lon_ref = _clean_ref(
-            _values(tiff, endian, gps_ifd[0x0003]) if 0x0003 in gps_ifd else None,
+            (_values(tiff, endian, gps_ifd[0x0003])
+             if 0x0003 in gps_ifd else None),
             'E')
         lat_vals = _values(tiff, endian, gps_ifd[0x0002]) or []
         lon_vals = _values(tiff, endian, gps_ifd[0x0004]) or []
         ref_invalid = lat_ref not in ('N', 'S') or lon_ref not in ('E', 'W')
         components_invalid = (
-            any(v is None for v in lat_vals) or any(v is None for v in lon_vals)
-            or (all(v == 0 for v in lat_vals) and all(v == 0 for v in lon_vals)))
+            any(v is None for v in lat_vals)
+            or any(v is None for v in lon_vals)
+            or (all(v == 0 for v in lat_vals)
+                and all(v == 0 for v in lon_vals)))
 
         if ref_invalid or components_invalid:
             return ('balise GPS EXIF PRÉSENTE MAIS VIDE (coordonnées et/ou '

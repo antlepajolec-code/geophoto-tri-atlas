@@ -29,10 +29,19 @@ from qgis.core import (
     QgsPrintLayout, QgsLayoutItemMap, QgsLayoutItemLabel,
     QgsLayoutItemPage, QgsLayoutItemPicture, QgsLayoutItemAttributeTable,
     QgsLayoutFrame, QgsLayoutPoint, QgsLayoutSize, QgsUnitTypes,
-    QgsProperty, QgsLayoutObject, QgsCoordinateTransform, QgsProject,
+    QgsProperty, QgsLayoutObject, QgsCoordinateTransform,
     QgsPalLayerSettings, QgsVectorLayerSimpleLabeling, QgsTextFormat,
-    QgsTextBufferSettings, QgsMapLayerStyle,
+    QgsTextBufferSettings, QgsMapLayerStyle, QgsMessageLog, Qgis,
 )
+
+_LOG_TAG = 'GeoPhoto Tri & Atlas'
+
+
+def _log_warn(message):
+    """Journalise un avertissement (utilisé dans les blocs defensifs
+    where une fonctionnalite optionnelle/dependante de la version de
+    QGIS peut echouer sans devoir interrompre la generation de l'Atlas)."""
+    QgsMessageLog.logMessage(str(message), _LOG_TAG, level=Qgis.Warning)
 
 
 def _match_filter(name_field):
@@ -233,8 +242,9 @@ def create_atlas_layout(project, polygon_layer, name_field, point_layer,
                 tr = QgsCoordinateTransform(polygon_layer.crs(),
                                             project.crs(), project)
                 extent = tr.transformBoundingBox(extent)
-            except Exception:
-                pass
+            except Exception as exc:
+                _log_warn(f"Reprojection de l'emprise pour la carte de "
+                          f"l'Atlas impossible, etendue non recadree : {exc}")
     if not extent.isEmpty():
         map_item.setExtent(extent)
 
@@ -250,8 +260,9 @@ def create_atlas_layout(project, polygon_layer, name_field, point_layer,
     if override_xml:
         try:
             map_item.setLayerStyleOverrides({point_layer.id(): override_xml})
-        except Exception:
-            pass
+        except Exception as exc:
+            _log_warn(f"Style d'etiquetage numerote non applique a la "
+                      f"carte de l'Atlas : {exc}")
 
     # ======================= PAGE 2 : PHOTOS ================================
     title2 = QgsLayoutItemLabel(layout)
@@ -301,8 +312,11 @@ def create_atlas_layout(project, polygon_layer, name_field, point_layer,
             except AttributeError:
                 pass
             table.setColumns(keep)
-    except Exception:
-        pass  # selon versions : on garde alors toutes les colonnes
+    except Exception as exc:
+        # selon versions de QGIS : on garde alors toutes les colonnes
+        _log_warn(f"Selection des colonnes de la table de photos "
+                  f"impossible, toutes les colonnes seront affichees : "
+                  f"{exc}")
     try:
         # API de tri moderne (QGIS >= 3.14)
         from qgis.core import QgsLayoutTableColumn
@@ -310,13 +324,15 @@ def create_atlas_layout(project, polygon_layer, name_field, point_layer,
         sort_col.setAttribute('num_bloc')
         sort_col.setSortOrder(Qt.AscendingOrder)
         table.setSortColumns([sort_col])
-    except Exception:
-        pass
+    except Exception as exc:
+        _log_warn(f"Tri de la table de photos par numero de bloc "
+                  f"impossible (API indisponible sur cette version de "
+                  f"QGIS) : {exc}")
     try:
         table.setEmptyTableBehavior(QgsLayoutItemAttributeTable.ShowMessage)
         table.setEmptyTableMessage('Aucune photo dans cette emprise.')
-    except Exception:
-        pass
+    except Exception as exc:
+        _log_warn(f"Message de table vide non configure : {exc}")
 
     frame = QgsLayoutFrame(layout, table)
     frame.attemptResize(QgsLayoutSize(97, 185, mm))
@@ -332,8 +348,8 @@ def create_atlas_layout(project, polygon_layer, name_field, point_layer,
     try:
         atlas.setSortFeatures(True)
         atlas.setSortExpression(f'"{name_field}"')
-    except Exception:
-        pass
+    except Exception as exc:
+        _log_warn(f"Tri de l'Atlas par '{name_field}' impossible : {exc}")
 
     project.layoutManager().addLayout(layout)
     return layout

@@ -5,7 +5,7 @@ description=Imports geotagged photos (EXIF GPS), creates the points on the map, 
 description[fr]=Importe des photos géoréférencées (EXIF GPS), crée les points sur la carte, trie/copie les photos dans des dossiers nommés selon les emprises polygonales, et génère une mise en page Atlas à 2 pages (carte + photos).
 about=The plugin reads GPS coordinates from photo EXIF data, creates a point layer in EPSG:4326 (WGS84, the GPS's native reference system) with the file name as an attribute, performs a spatial join with a polygon layer (footprints), then copies or moves the photos into sub-folders named after the chosen field of each footprint. It also prepares an Atlas layout: page 1 = map centred on the footprint, page 2 = associated photos + photo table.
 about[fr]=Le plugin lit les coordonnées GPS des photos (EXIF), crée une couche de points en EPSG:4326 (WGS84, référentiel natif du GPS) avec le nom de fichier en attribut, effectue une jointure spatiale avec une couche de polygones (emprises) puis copie ou déplace les photos dans des sous-dossiers nommés d'après le champ choisi de chaque entité. Il prépare également une mise en page Atlas : page 1 = carte centrée sur l'emprise, page 2 = photos associées + table des photos.
-version=1.2.0
+version=1.2.1
 author=Antoine Le Pajolec
 email=ant.lepajolec@gmail.com
 category=Vector
@@ -17,7 +17,15 @@ experimental=False
 deprecated=False
 hasProcessingProvider=no
 icon=icon.svg
-changelog=1.2.0
+changelog=1.2.1
+    - Fix: silent "except Exception: pass" blocks (flagged as CWE-703 by
+      the QGIS repository's mandatory Bandit security scan, which
+      blocked this plugin's publication) now log a warning via
+      QgsMessageLog instead of failing silently.
+    - Cleanup: removed unused imports and fixed remaining code-style
+      warnings (Flake8) found during the QGIS repository's pre-publish
+      scan.
+    1.2.0
     - Fix: a GPS EXIF tag present but EMPTY (0/0 rational components,
       missing N/S/E/W reference — observed on a Samsung Galaxy A26 5G
       when location could not be acquired at capture time) was

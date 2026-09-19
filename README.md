@@ -105,6 +105,19 @@ intégré à QGIS.
 
 ## Historique
 
+### 1.2.1
+- **Correctif** : les blocs `except Exception: pass` (10 occurrences dans
+  `atlas.py` et `core.py`), détectés comme problème CRITIQUE (CWE-703)
+  par le scan de sécurité Bandit obligatoire du dépôt officiel QGIS —
+  ce qui bloquait la publication du plugin — journalisent désormais un
+  avertissement via `QgsMessageLog` au lieu d'échouer silencieusement.
+  Aucun changement de comportement fonctionnel : ce sont des blocs
+  défensifs (compatibilité entre versions de QGIS) qui continuent à ne
+  pas interrompre l'import/le tri/la génération de l'Atlas.
+- **Nettoyage** : suppression des imports inutilisés et correction des
+  derniers avertissements de style (Flake8) relevés par le scan du
+  dépôt QGIS.
+
 ### 1.2.0
 - **Correctif** : une balise GPS EXIF présente mais VIDE (composants
   rationnels `0/0`, référence N/S/E/W absente — observé sur un Samsung

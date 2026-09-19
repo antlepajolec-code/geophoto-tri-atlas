@@ -22,7 +22,8 @@ from qgis.PyQt.QtCore import QVariant, QDateTime
 from qgis.core import (
     QgsVectorLayer, QgsField, QgsFeature, QgsGeometry, QgsPointXY,
     QgsProject, QgsCoordinateTransform, QgsSpatialIndex,
-    QgsVectorFileWriter, QgsWkbTypes, QgsDistanceArea, QgsUnitTypes,
+    QgsVectorFileWriter, QgsDistanceArea, QgsUnitTypes,
+    QgsMessageLog, Qgis,
 )
 
 try:
@@ -32,6 +33,16 @@ except ImportError:          # très vieilles versions de QGIS
     HAS_EXIF = False
 
 from .exif_fallback import read_gps_exif, describe_raw_gps
+
+_LOG_TAG = 'GeoPhoto Tri & Atlas'
+
+
+def _log_warn(message):
+    """Journalise un avertissement (utilise dans les blocs defensifs ou
+    une fonctionnalite optionnelle/dependante de la version de QGIS
+    peut echouer sans devoir interrompre l'import/le tri)."""
+    QgsMessageLog.logMessage(str(message), _LOG_TAG, level=Qgis.Warning)
+
 
 # Extensions d'images gérées (l'EXIF GPS est surtout présent en JPEG/TIFF)
 PHOTO_EXTS = ('.jpg', '.jpeg', '.jpe', '.tif', '.tiff', '.png', '.webp',
@@ -127,8 +138,11 @@ def _read_geotag_qgis(path):
     try:
         if point.isEmpty():
             return None
-    except Exception:
-        pass
+    except Exception as exc:
+        # isEmpty() indisponible sur cette version de QGIS : on
+        # poursuit avec le point tel quel (validation plus loin).
+        _log_warn(f"Verification isEmpty() du geotag QgsExifTools "
+                  f"impossible : {exc}")
 
     x, y = point.x(), point.y()
     if _invalid_coord(x, y):
@@ -211,8 +225,11 @@ def _read_geotag_pil(path):
         if d:
             d = str(d)
             date = d.replace(':', '-', 2) if len(d) >= 10 else d
-    except Exception:
-        pass
+    except Exception as exc:
+        # Date de prise de vue absente ou balise EXIF illisible : ce
+        # n'est pas bloquant, la photo est importee sans date.
+        _log_warn(f"Date de prise de vue (EXIF) illisible pour une "
+                  f"photo : {exc}")
 
     return {'x': lon, 'y': lat, 'z': alt, 'date': date, 'direction': None}
 
@@ -416,7 +433,8 @@ def save_as_gpkg(layer, gpkg_path):
     uri = f"{gpkg_path}|layername={layer.name()}"
     out = QgsVectorLayer(uri, layer.name(), 'ogr')
     if not out.isValid():
-        raise RuntimeError("GeoPackage écrit mais couche invalide au rechargement.")
+        raise RuntimeError(
+            "GeoPackage écrit mais couche invalide au rechargement.")
     return out
 
 
@@ -425,7 +443,8 @@ def save_as_gpkg(layer, gpkg_path):
 # --------------------------------------------------------------------------
 
 def _ensure_sort_fields(layer, log):
-    """Ajoute les champs 'emprise', 'chemin_tri' et 'dist_emprise' si absents."""
+    """Ajoute les champs 'emprise', 'chemin_tri' et 'dist_emprise' si
+    absents."""
     wanted = [('emprise', QVariant.String),
               ('chemin_tri', QVariant.String),
               ('dist_emprise', QVariant.Double),
@@ -468,8 +487,12 @@ def _nearest_polygon(index, geoms, pt_geom, da):
         meters = da.measureLine(QgsPointXY(pt), QgsPointXY(near))
         meters = da.convertLengthMeasurement(
             meters, QgsUnitTypes.DistanceMeters)
-    except Exception:
-        pass
+    except Exception as exc:
+        # Mesure ellipsoidale impossible : on garde la distance
+        # cartesienne calculee plus haut (valeur approximative).
+        _log_warn(f"Mesure de distance ellipsoidale a l'emprise la "
+                  f"plus proche impossible, distance approximative "
+                  f"utilisee : {exc}")
     return best_fid, meters
 
 
@@ -605,8 +628,11 @@ def sort_photos(point_layer, polygon_layer, name_field, dest_root,
                         QgsProject.instance().transformContext())
         ell = QgsProject.instance().ellipsoid()
         da.setEllipsoid(ell if ell else 'WGS84')
-    except Exception:
-        pass
+    except Exception as exc:
+        # Mesure ellipsoidale non configuree : les distances de
+        # rattachement seront approximatives (SCR cartesien).
+        _log_warn(f"Configuration de la mesure ellipsoidale (rattachement "
+                  f"des photos hors emprise) impossible : {exc}")
 
     can_update = _ensure_sort_fields(point_layer, log)
     idx_emprise = point_layer.fields().indexOf('emprise')
@@ -645,8 +671,8 @@ def sort_photos(point_layer, polygon_layer, name_field, dest_root,
             try:
                 pt = transform.transform(pt)
             except Exception as e:
-                log(f"  · reprojection impossible pour "
-                    f"{feat[idx_photo] if idx_photo != -1 else feat.id()} : {e}")
+                ident = feat[idx_photo] if idx_photo != -1 else feat.id()
+                log(f"  · reprojection impossible pour {ident} : {e}")
                 continue
         pt_geom = QgsGeometry.fromPointXY(QgsPointXY(pt))
 
@@ -735,7 +761,8 @@ def sort_photos(point_layer, polygon_layer, name_field, dest_root,
         dest_paths, matched_names = [], []
         for fid in matches:
             ename = names[fid]                    # dossier assaini
-            matched_names.append(raw_names[fid])   # valeur brute -> attribut 'emprise'
+            # valeur brute -> attribut 'emprise'
+            matched_names.append(raw_names[fid])
             ddir = os.path.join(dest_root, ename)
             # Photo rattachée par proximité -> sous-dossier dédié du bloc
             if nearest_m is not None and nearest_subfolder:
@@ -786,6 +813,7 @@ def sort_photos(point_layer, polygon_layer, name_field, dest_root,
         f"{stats['copies']} copie(s), {stats['ignores']} déjà présente(s), "
         f"{stats['introuvables']} fichier(s) introuvable(s).")
     if move:
-        log(f"{stats['deplaces']} original(aux) supprimé(s) (mode déplacement).")
+        log(f"{stats['deplaces']} original(aux) supprimé(s) "
+            f"(mode déplacement).")
 
     return stats

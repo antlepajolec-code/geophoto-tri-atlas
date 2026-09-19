@@ -10,7 +10,6 @@ Trois onglets :
 
 import os
 
-from qgis.PyQt.QtCore import Qt
 from qgis.PyQt.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QFormLayout, QTabWidget, QWidget,
     QLabel, QLineEdit, QCheckBox, QPushButton, QRadioButton, QButtonGroup,
@@ -158,7 +157,8 @@ class GeoPhotoDialog(QDialog):
         form.addRow(grp_op)
 
         self.chk_multi = QCheckBox(
-            'Si une photo tombe dans plusieurs emprises, la copier dans chacune')
+            'Si une photo tombe dans plusieurs emprises, la copier '
+            'dans chacune')
         self.chk_multi.setChecked(True)
         form.addRow('', self.chk_multi)
 
@@ -221,7 +221,8 @@ class GeoPhotoDialog(QDialog):
             'ordre.')
         form.addRow('', self.chk_number)
 
-        self.chk_unmatched = QCheckBox('Ranger aussi les photos hors emprise dans :')
+        self.chk_unmatched = QCheckBox(
+            'Ranger aussi les photos hors emprise dans :')
         self.chk_unmatched.setChecked(True)
         self.unmatched_name = QLineEdit('_hors_emprises')
         row = QHBoxLayout()
@@ -311,14 +312,16 @@ class GeoPhotoDialog(QDialog):
     def run_import(self):
         folder = self.src_folder.filePath()
         if not folder or not os.path.isdir(folder):
-            QMessageBox.warning(self, 'GeoPhoto',
-                                'Veuillez choisir un dossier de photos valide.')
+            QMessageBox.warning(
+                self, 'GeoPhoto',
+                'Veuillez choisir un dossier de photos valide.')
             return
         try:
             layer, stats = core.import_photos(
                 folder,
                 recursive=self.chk_recursive.isChecked(),
-                layer_name=self.layer_name.text().strip() or 'Photos géolocalisées',
+                layer_name=(self.layer_name.text().strip()
+                            or 'Photos géolocalisées'),
                 progress_cb=self._progress,
                 log_cb=self.log)
         except Exception as e:
@@ -438,7 +441,7 @@ class GeoPhotoDialog(QDialog):
         canvas_layers = canvas.layers() if canvas else None
         canvas_extent = canvas.extent() if canvas else None
         canvas_crs = (canvas.mapSettings().destinationCrs()
-                     if canvas else None)
+                      if canvas else None)
 
         try:
             layout = atlas_mod.create_atlas_layout(
